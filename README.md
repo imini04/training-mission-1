@@ -41,7 +41,7 @@
 - [x] 바인드 마운트 실시간 변경 검증 (`-v $(pwd)/app:/usr/share/nginx/html`)
 - [x] Named Volume 데이터 영속성 검증 (컨테이너 삭제 전/후 비교)
 - [x] Git 사용자 정보·기본 브랜치(`main`) 설정 및 로컬 커밋
-- [ ] VSCode GitHub 로그인 및 원격 저장소 연동(push)
+- [x] VSCode GitHub 로그인 및 원격 저장소 연동(push)
 - [x] 트러블슈팅 2건 기록 및 분석
 
 ### 검증 방법 요약
