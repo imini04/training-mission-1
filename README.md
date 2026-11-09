@@ -602,8 +602,8 @@ core.logallrefupdates=true
 ### 재현 방법
 이 저장소를 받은 뒤 아래 순서대로 실행하면 같은 결과를 확인할 수 있습니다.
 ```bash
-git clone https://github.com/imini04/<저장소이름>.git
-cd <저장소이름>
+git clone https://github.com/imini04/training-mission-1.git
+cd training-mission-1
 docker build -t my-web:1.0 .
 docker run -d -p 8080:80 --name web-8080 my-web:1.0
 sleep 2                        # NGINX 초기화 대기 (트러블슈팅 이슈 1 참고)
