@@ -618,4 +618,4 @@ curl http://localhost:8080     # <h1>My Dev Workstation</h1>
 
 ### 보안 및 개인정보
 - 문서, 로그, 스크린샷에 비밀번호, 액세스 토큰, SSH 개인키, 인증 코드가 포함되지 않았음을 확인했습니다.
-- GitHub 인증은 VSCode/브라우저 로그인 방식으로 진행했고, 토큰 값을 터미널이나 문서에 직접 입력하지 않았습니다.
+- GitHub 인증은 VM 터미널에서 push할 때 비밀번호 대신 Personal Access Token(PAT)을 사용했으며, 토큰 값은 문서·로그·스크린샷에 남기지 않았습니다.
