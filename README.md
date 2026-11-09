@@ -554,8 +554,8 @@ core.logallrefupdates=true
 >   - `git branch -M main`: **이미 만든** 이 저장소의 `master`를 `main`으로 바꿉니다. 커밋 기록은 그대로 두고 브랜치 이름만 바뀝니다.
 > - `git config --list`에 `init.defaultbranch=main`이 추가된 것을 확인했습니다.
 > **VSCode / GitHub 연동 캡처 증거:**
-> ![VSCode 연동](docs/screenshots/github_sync.png)
-> *(VSCode 소스 제어 탭에서 원격 저장소 동기화 완료 상태 캡처)*
+> ![VM에서 GitHub push 확인](docs/screenshots/git_vm_push.png)
+> *(VM 터미널에서 clone → commit → push 후 `git log --oneline`에 `origin/main`이 표시되고, `git pull` 결과가 "이미 업데이트 상태"로 원격과 동기화된 것을 확인)*
 
 ---
 
