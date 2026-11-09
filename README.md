@@ -13,7 +13,7 @@
 ├── Dockerfile                # 커스텀 NGINX 이미지 정의
 ├── app/
 │   └── index.html            # 웹 서버 정적 페이지
-└── docs/screenshots/         # 브라우저 접속, VSCode 연동 캡처
+└── docs/screenshots/         # 브라우저 접속, VM push 캡처
 ```
 
 ---
@@ -40,10 +40,10 @@
 - [x] 호스트-컨테이너 포트 포워딩 (`-p 8080:80`) 및 브라우저 접속
 - [x] 바인드 마운트 실시간 변경 검증 (`-v $(pwd)/app:/usr/share/nginx/html`)
 - [x] Named Volume 데이터 영속성 검증 (컨테이너 삭제 전/후 비교)
-- [x] Git 사용자 정보·기본 브랜치(`main`) 설정 및 로컬 커밋
-- [x] VSCode GitHub 로그인 및 원격 저장소 연동(push)
 - [x] 볼륨 백업 및 복구 (`tar`)
-- [x] qhffba 
+- [x] Git 사용자 정보·기본 브랜치(`main`) 설정 및 로컬 커밋
+- [x] GitHub 원격 저장소 연동 (`git remote`, PAT 인증 후 `git push`)
+- [x] 포트 충돌 진단 (`ss`, `docker ps --filter`) 및 포트 해제
 - [x] 트러블슈팅 3건 기록 및 분석
 
 ### 검증 방법 요약
@@ -60,7 +60,7 @@
 | 바인드 마운트 | `-v $(pwd)/app:...`, `curl` | 호스트 수정이 재시작 없이 8081에 반영, 8080은 그대로 | [7.1](#71-바인드-마운트bind-mount-즉시-반영-검증) |
 | 볼륨 영속성 | `docker volume create`, `docker rm -f`, `cat` | 컨테이너 삭제 전/후 모두 `preserved file` | [7.2](#72-docker-named-volume-영속성-검증) |
 | 볼륨 백업·복구 | `tar czf`, `tar xzf`, `cat` | 새 볼륨 `my-data-restore`에서 `preserved file` | [7.3](#73-볼륨-백업-및-복구) |
-| Git 설정 | `git config --list`, `git branch` | `init.defaultbranch=main`, `* main` | [8](#8-git-설정-및-github-연동) || Git 설정·연동 | `git config --list`, `git branch` | `init.defaultbranch=main`, `* main`, VSCode 연동 캡처 | [8](#8-git-설정-및-github-연
+| Git 설정 | `git config --list`, `git branch` | `init.defaultbranch=main`, `* main` | [8](#8-git-설정-및-github-연동) |
 | GitHub 연동 | `git remote -v`, `git push`, `git log` | `main -> main`, `HEAD`와 `origin/main` 일치 | [8.1](#81-원격-저장소-연결-및-push) |
 | 포트 충돌 | `sudo ss -tlnp`, `docker ps --filter`, `docker stop` | `docker-proxy`가 8080 점유 확인, 중지 후 해제 | [이슈 3](#이슈-3-포트-충돌-port-is-already-allocated) |
 
@@ -604,8 +604,9 @@ a870b87 feat: add Dockerfile and app, fix README links
 2642f1b Revise GitHub sync evidence in README
 ```
 > **확인 포인트:** `origin`이 GitHub 저장소로 연결되어 있고, push 결과 `main -> main`으로 반영되었습니다. `git log`에서 `HEAD`와 `origin/main`이 같은 커밋을 가리켜 로컬과 원격이 동기화되었음을 확인했습니다. GitHub는 비밀번호 인증을 지원하지 않아 Personal Access Token(PAT)으로 인증했습니다.
+> (push 이후 GitHub 웹에서 README를 수정한 커밋 `8c5e15c`를 `git pull`로 받아와, `git log`의 최신 커밋이 push 시점의 `a870b87`보다 하나 앞서 있습니다.)
 
-> **VSCode / GitHub 연동 캡처 증거:**
+> **VM 터미널 GitHub push 캡처 증거:**
 > ![VM에서 GitHub push 확인](docs/screenshots/git_vm_push.png)
 > *(VM 터미널에서 clone → commit → push 후 `git log --oneline`에 `origin/main`이 표시되고, `git pull` 결과가 "이미 업데이트 상태"로 원격과 동기화된 것을 확인)*
 
