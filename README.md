@@ -42,7 +42,9 @@
 - [x] Named Volume 데이터 영속성 검증 (컨테이너 삭제 전/후 비교)
 - [x] Git 사용자 정보·기본 브랜치(`main`) 설정 및 로컬 커밋
 - [x] VSCode GitHub 로그인 및 원격 저장소 연동(push)
-- [x] 트러블슈팅 2건 기록 및 분석
+- [x] 볼륨 백업 및 복구 (`tar`)
+- [x] qhffba 
+- [x] 트러블슈팅 3건 기록 및 분석
 
 ### 검증 방법 요약
 | 검증 항목 | 사용한 명령 | 확인한 결과 | 결과 위치 |
@@ -57,7 +59,10 @@
 | 운영 명령 | `docker logs`, `docker stats`, `docker stop/start` | NGINX 기동 로그, 리소스 사용량, 상태 변화 | [6.4](#64-컨테이너-운영-명령-logs--stats--stop--start) |
 | 바인드 마운트 | `-v $(pwd)/app:...`, `curl` | 호스트 수정이 재시작 없이 8081에 반영, 8080은 그대로 | [7.1](#71-바인드-마운트bind-mount-즉시-반영-검증) |
 | 볼륨 영속성 | `docker volume create`, `docker rm -f`, `cat` | 컨테이너 삭제 전/후 모두 `preserved file` | [7.2](#72-docker-named-volume-영속성-검증) |
-| Git 설정·연동 | `git config --list`, `git branch` | `init.defaultbranch=main`, `* main`, VSCode 연동 캡처 | [8](#8-git-설정-및-github-연동) |
+| 볼륨 백업·복구 | `tar czf`, `tar xzf`, `cat` | 새 볼륨 `my-data-restore`에서 `preserved file` | [7.3](#73-볼륨-백업-및-복구) |
+| Git 설정 | `git config --list`, `git branch` | `init.defaultbranch=main`, `* main` | [8](#8-git-설정-및-github-연동) || Git 설정·연동 | `git config --list`, `git branch` | `init.defaultbranch=main`, `* main`, VSCode 연동 캡처 | [8](#8-git-설정-및-github-연
+| GitHub 연동 | `git remote -v`, `git push`, `git log` | `main -> main`, `HEAD`와 `origin/main` 일치 | [8.1](#81-원격-저장소-연결-및-push) |
+| 포트 충돌 | `sudo ss -tlnp`, `docker ps --filter`, `docker stop` | `docker-proxy`가 8080 점유 확인, 중지 후 해제 | [이슈 3](#이슈-3-포트-충돌-port-is-already-allocated) |
 
 ---
 
@@ -513,6 +518,32 @@ preserved file
 > | 저장 위치 | 호스트의 지정 경로 (`$(pwd)/app`) | Docker가 관리하는 영역 (`/var/lib/docker/volumes`) |
 > | 주 용도 | 개발 중 소스코드 실시간 반영 | DB 등 영속 데이터 보관 |
 
+### 7.3 볼륨 백업 및 복구
+볼륨이 삭제(`docker volume rm`)되거나 손상되면 데이터가 사라지므로, 임시 컨테이너로 볼륨 내용을 tar 파일로 백업하고 새 볼륨에 복구하는 과정을 검증했습니다.
+```bash
+# 1. 백업: my-data 볼륨을 /data에, 현재 폴더를 /backup에 연결해 압축
+$ docker run --rm -v my-data:/data -v $(pwd):/backup ubuntu tar czf /backup/my-data.tar.gz -C /data .
+$ ls -l my-data.tar.gz
+-rw-r--r-- 1 root root 166 11월  9 19:08 my-data.tar.gz
+
+# 2. 복구: 새 볼륨을 만들고 백업 파일을 풀기
+$ docker volume create my-data-restore
+my-data-restore
+$ docker run --rm -v my-data-restore:/data -v $(pwd):/backup ubuntu tar xzf /backup/my-data.tar.gz -C /data
+
+# 3. 복구 확인
+$ docker run --rm -v my-data-restore:/data ubuntu cat /data/save.txt
+preserved file
+
+# 4. 백업 파일이 저장소에 커밋되지 않도록 삭제
+$ rm -f my-data.tar.gz
+```
+> **검증 결론:**
+> - 새 볼륨 `my-data-restore`에서 `preserved file`이 출력되어 백업·복구가 정상 동작함을 확인했습니다.
+> - 백업 파일 소유자가 `root`인 것은 컨테이너 안의 `tar`가 root로 실행되었기 때문입니다.
+> - `-v`에는 `./` 대신 `$(pwd)`를 사용했습니다. 셸이 절대경로로 바꿔 전달하므로 상대경로를 볼륨 이름으로 해석하는 이전 Docker 버전에서도 확실히 바인드 마운트로 동작합니다.
+> - 실제 운영에서는 백업 파일을 같은 머신이 아닌 외부 디스크나 클라우드 저장소에 보관해야 합니다.
+
 ---
 
 ## 8. Git 설정 및 GitHub 연동
@@ -553,6 +584,27 @@ core.logallrefupdates=true
 >   - `init.defaultBranch main`: 앞으로 `git init`으로 만드는 **새 저장소**에 적용되는 전역 설정입니다.
 >   - `git branch -M main`: **이미 만든** 이 저장소의 `master`를 `main`으로 바꿉니다. 커밋 기록은 그대로 두고 브랜치 이름만 바뀝니다.
 > - `git config --list`에 `init.defaultbranch=main`이 추가된 것을 확인했습니다.
+
+### 8.1 원격 저장소 연결 및 push
+```bash
+$ git remote -v
+origin  https://github.com/imini04/training-mission-1.git (fetch)
+origin  https://github.com/imini04/training-mission-1.git (push)
+
+$ git push
+Username for 'https://github.com': imini04
+Password for 'https://imini04@github.com':      # PAT 입력 (화면에 표시되지 않음)
+오브젝트 쓰는 중: 100% (6/6), 643 바이트 | 643.00 KiB/s, 완료.
+To https://github.com/imini04/training-mission-1.git
+   2642f1b..a870b87  main -> main
+
+$ git log --oneline -3
+8c5e15c (HEAD -> main, origin/main, origin/HEAD) Revise GitHub authentication details in README
+a870b87 feat: add Dockerfile and app, fix README links
+2642f1b Revise GitHub sync evidence in README
+```
+> **확인 포인트:** `origin`이 GitHub 저장소로 연결되어 있고, push 결과 `main -> main`으로 반영되었습니다. `git log`에서 `HEAD`와 `origin/main`이 같은 커밋을 가리켜 로컬과 원격이 동기화되었음을 확인했습니다. GitHub는 비밀번호 인증을 지원하지 않아 Personal Access Token(PAT)으로 인증했습니다.
+
 > **VSCode / GitHub 연동 캡처 증거:**
 > ![VM에서 GitHub push 확인](docs/screenshots/git_vm_push.png)
 > *(VM 터미널에서 clone → commit → push 후 `git log --oneline`에 `origin/main`이 표시되고, `git pull` 결과가 "이미 업데이트 상태"로 원격과 동기화된 것을 확인)*
@@ -577,6 +629,47 @@ core.logallrefupdates=true
   출력이 `Pulling from library/ubuntu` → `Pull complete` → `Status: Downloaded newer image for ubuntu:latest`로 이어지고 컨테이너 ID가 출력됨. `docker ps`에서 `my-ubuntu`가 `Up` 상태로 조회됨.
 * **해결:**
   오류가 아닌 정상 동작(로컬에 없으면 Docker Hub에서 자동 pull)임을 확인. 미리 받아두려면 `docker pull ubuntu:latest`를 먼저 실행하면 됨.
+
+### 이슈 3: 포트 충돌 (`port is already allocated`)
+* **문제 상황:** `web-8080`이 8080을 사용 중인 상태에서 같은 포트로 컨테이너를 하나 더 실행하자 오류 발생.
+```bash
+$ docker run -d -p 8080:80 --name web-dup my-web:1.0
+11ad394f9fbe54a9ca4696904fc4b667313986d7a20adbb209e35c62e8f796dc
+docker: Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint web-dup (...): Bind for 0.0.0.0:8080 failed: port is already allocated
+```
+* **원인 가설:** 호스트 8080 포트를 이미 다른 프로세스(기존 컨테이너)가 점유하고 있을 것이다.
+* **확인:**
+```bash
+# 8080을 점유한 프로세스 확인 (sudo로 프로세스 이름까지 표시)
+$ sudo ss -tlnp | grep 8080
+LISTEN 0  4096  0.0.0.0:8080  0.0.0.0:*  users:(("docker-proxy",pid=6958,fd=8))
+LISTEN 0  4096     [::]:8080     [::]:*  users:(("docker-proxy",pid=6965,fd=8))
+
+# 해당 포트를 게시한 컨테이너 확인
+$ docker ps --filter "publish=8080"
+CONTAINER ID   IMAGE        ...   PORTS                                     NAMES
+46fe6e4d8e99   my-web:1.0   ...   0.0.0.0:8080->80/tcp, [::]:8080->80/tcp   web-8080
+
+# 실패한 컨테이너는 생성만 되고 시작되지 못한 상태로 남음
+$ docker ps -a --filter "name=web-dup"
+CONTAINER ID   IMAGE        ...   STATUS    NAMES
+11ad394f9fbe   my-web:1.0   ...   Created   web-dup
+```
+* **해결:**
+```bash
+# 1. 실패해서 남은 컨테이너 정리
+$ docker rm -f web-dup
+
+# 2. 기존 컨테이너를 중지해 포트 해제 → ss 결과가 비어 있으면 해제된 것
+$ docker stop web-8080
+$ ss -tlnp | grep 8080
+(출력 없음)
+
+# 3. 다시 시작
+$ docker start web-8080
+```
+  - 두 컨테이너를 동시에 띄워야 한다면 호스트 포트만 바꿔 실행한다: `docker run -d -p 8082:80 ...`
+  - Docker가 아닌 일반 프로그램이 점유한 경우에는 `sudo ss -tlnp` 또는 `sudo lsof -i :8080`으로 PID를 찾아 해당 프로그램을 종료한다.
 
 ---
 
